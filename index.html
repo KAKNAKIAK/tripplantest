@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Noto Sans KR', sans-serif;
@@ -271,7 +272,7 @@
         }
 
         @media print, .saved-html-view { 
-            .header, .add-day-button-container, .add-activity-button, #activityModal, #confirmDeleteDayModal, .day-toggle-button, .edit-date-button, .save-date-button, .cancel-date-edit-button, .delete-day-button, #saveHtmlButton, #loadHtmlButtonTrigger, .edit-trip-title-button, .save-trip-title-button, .cancel-trip-title-edit-button, .card-actions-direct, #loadDayHtmlButtonTrigger, .save-day-button, .load-day-at-index-button, #previewButton /* Hide preview button in print/saved view */ { display: none !important; }
+            .header, .add-day-button-container, .add-activity-button, #activityModal, #confirmDeleteDayModal, .day-toggle-button, .edit-date-button, .save-date-button, .cancel-date-edit-button, .delete-day-button, #saveHtmlButton, #loadHtmlButtonTrigger, .edit-trip-title-button, .save-trip-title-button, .cancel-trip-title-edit-button, .card-actions-direct, #loadDayHtmlButtonTrigger, .save-day-button, .load-day-at-index-button, #previewButton, #loadExcelButtonTrigger { display: none !important; }
             .main-content, .readonly-main-content { padding: 0 !important; }
             .day-section { margin-bottom: 15mm; page-break-inside: avoid; }
             .day-header-container { padding: 0; margin-bottom: 5mm; border-bottom: 2px solid black; background-color: white !important; cursor: default !important; }
@@ -327,6 +328,11 @@
                 <button id="loadHtmlButtonTrigger" class="action-button bg-yellow-500 text-white hover:bg-yellow-600" title="HTML 파일에서 불러오기">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     <span class="hidden sm:inline">HTML 불러오기</span>
+                </button>
+                <input type="file" id="loadExcelInput" accept=".xlsx, .csv" style="display: none;">
+                <button id="loadExcelButtonTrigger" class="action-button bg-green-500 text-white hover:bg-green-600" title="엑셀 파일에서 불러오기">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                    <span class="hidden sm:inline">엑셀 불러오기</span>
                 </button>
                 </div>
         </div>
@@ -428,11 +434,13 @@
         const dayIndexInput = document.getElementById('dayIndex');
         const activityTimeInput = document.getElementById('activityTimeInput'); 
         const activityIconSelect = document.getElementById('activityIconSelect'); 
-        const previewButton = document.getElementById('previewButton'); // New Preview Button
+        const previewButton = document.getElementById('previewButton'); 
         const savePdfButton = document.getElementById('savePdfButton');
         const saveHtmlButton = document.getElementById('saveHtmlButton'); 
         const loadHtmlInput = document.getElementById('loadHtmlInput'); 
         const loadHtmlButtonTrigger = document.getElementById('loadHtmlButtonTrigger'); 
+        const loadExcelInput = document.getElementById('loadExcelInput'); 
+        const loadExcelButtonTrigger = document.getElementById('loadExcelButtonTrigger'); 
         const loadDayAtIndexHtmlInput = document.getElementById('loadDayAtIndexHtmlInput'); 
         const toast = document.getElementById('toast');
         const confirmDeleteDayModal = document.getElementById('confirmDeleteDayModal');
@@ -873,11 +881,7 @@
 
             tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; });
             tripData.editingTitle = false;
-            // Render once to ensure all data is in display mode for generateReadOnlyHTMLView
-            // This step might be redundant if generateReadOnlyHTMLView correctly uses tripData
-            // but ensures consistency if renderTrip() had side effects on data for display.
-            // For preview, we don't need to call renderTrip() if generateReadOnlyHTMLView is robust.
-
+            
             const readOnlyViewHTML = generateReadOnlyHTMLView(tripData);
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
@@ -925,13 +929,11 @@
                 alert("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.");
             }
 
-            // Revert to original states
             tripData.days.forEach((d, i) => { 
                 d.isCollapsed = originalCollapseStates[i]; 
                 d.editingDate = originalEditingStates[i];
             });
             tripData.editingTitle = originalEditingTitleState;
-            // renderTrip(); // Re-render the main app to its original state
         });
 
 
@@ -1142,6 +1144,136 @@
                 reader.readAsText(file);
             } else {
                  insertDayAtIndex = -1; 
+            }
+        });
+
+        // --- Excel Load Logic ---
+        loadExcelButtonTrigger.addEventListener('click', () => {
+            loadExcelInput.click();
+        });
+
+        loadExcelInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array', cellDates: true, dateNF:'yyyy-mm-dd'}); 
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: false, defval: ""}); 
+
+                        if (jsonData.length < 2) { 
+                            throw new Error("엑셀 파일에 데이터가 없거나 헤더만 존재합니다.");
+                        }
+
+                        const newDaysData = [];
+                        let currentDayObject = null;
+                        let errors = [];
+
+                        for (let i = 1; i < jsonData.length; i++) {
+                            const row = jsonData[i];
+                            const excelRowNumber = i + 1; 
+
+                            const rawDate = row[0] ? String(row[0]).trim() : "";
+                            const time = row[1] ? String(row[1]).trim().padStart(4, '0') : ""; 
+                            const title = row[2] ? String(row[2]).trim() : "";
+                            const description = row[3] ? String(row[3]).trim() : "";
+                            const icon = row[4] ? String(row[4]).trim() : "";
+                            const imageUrl = row[5] ? String(row[5]).trim() : "";
+                            const cost = row[6] ? String(row[6]).trim() : "";
+                            const notes = row[7] ? String(row[7]).trim() : "";
+
+                            let formattedDate = "";
+                            if (!rawDate) {
+                                errors.push(`${excelRowNumber}행: 날짜(A열)가 비어있습니다. 이 행을 건너<0xEB뛰니다>.`);
+                                continue; 
+                            }
+                            let parsedDate = null;
+                            if (typeof rawDate === 'number') { 
+                                parsedDate = XLSX.SSF.parse_date_code(rawDate);
+                                if (parsedDate) {
+                                     formattedDate = `${parsedDate.y}-${String(parsedDate.m).padStart(2,'0')}-${String(parsedDate.d).padStart(2,'0')}`;
+                                }
+                            } else if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+                                parsedDate = new Date(rawDate + "T00:00:00"); 
+                                if (!isNaN(parsedDate.getTime())) {
+                                    formattedDate = rawDate;
+                                }
+                            }
+                            
+                            if (!formattedDate) {
+                                errors.push(`${excelRowNumber}행: 날짜(A열) 형식이 올바르지 않습니다 (YYYY-MM-DD 필요). 값: "${row[0]}". 이 행을 건너<0xEB뛰니다>.`);
+                                continue;
+                            }
+
+                            if (!title) {
+                                errors.push(`${excelRowNumber}행: 활동/장소명(C열)이 비어있습니다. 이 행을 건너<0xEB뛰니다>.`);
+                                continue;
+                            }
+
+                            if (time && (!/^\d{4}$/.test(time) || parseInt(time.substring(0,2)) > 23 || parseInt(time.substring(2,4)) > 59 )) {
+                                errors.push(`${excelRowNumber}행: 시간(B열)은 HHMM 형식이거나 비워야 합니다. 값: "${row[1]}". 시간 정보 없이 진행합니다.`);
+                            }
+                            
+                            if (!currentDayObject || currentDayObject.date !== formattedDate) {
+                                currentDayObject = {
+                                    date: formattedDate,
+                                    activities: [],
+                                    isCollapsed: false,
+                                    editingDate: false
+                                };
+                                newDaysData.push(currentDayObject);
+                            }
+
+                            currentDayObject.activities.push({
+                                id: generateId(),
+                                time: time,
+                                icon: icon,
+                                title: title,
+                                description: description,
+                                locationLink: "", 
+                                imageUrl: imageUrl,
+                                cost: cost,
+                                notes: notes
+                            });
+                        }
+                        
+                        if (errors.length > 0) {
+                            alert("엑셀 데이터 불러오기 중 다음 오류가 발생했습니다:\n\n" + errors.join("\n") + "\n\n유효한 데이터만 반영됩니다.");
+                        }
+
+                        if (newDaysData.length > 0) {
+                            tripData.days = newDaysData;
+                            // Do not recalculate dates if we want to preserve exact dates from Excel.
+                            // If sequential dates are desired after import, then call recalculateAllDates().
+                            // For now, we assume Excel dates are what the user wants.
+                            renderTrip();
+                            toast.textContent = '엑셀에서 일정을 성공적으로 불러왔습니다.';
+                        } else if (errors.length > 0 && newDaysData.length === 0) {
+                             toast.textContent = '엑셀에서 유효한 데이터를 불러오지 못했습니다. 오류를 확인해주세요.';
+                             toast.style.backgroundColor = 'orange';
+                        } else {
+                             toast.textContent = '엑셀 파일에 처리할 데이터가 없습니다.';
+                             toast.style.backgroundColor = 'orange';
+                        }
+
+                    } catch (err) {
+                        console.error("엑셀 불러오기 오류:", err);
+                        toast.textContent = `엑셀 파일 처리 중 오류: ${err.message}`;
+                        toast.style.backgroundColor = 'red';
+                    } finally {
+                        toast.classList.remove('opacity-0');
+                        setTimeout(() => {
+                            toast.classList.add('opacity-0');
+                            toast.style.backgroundColor = ''; 
+                        }, 5000);
+                        loadExcelInput.value = null; 
+                    }
+                };
+                reader.onerror = () => { /* ... */ };
+                reader.readAsArrayBuffer(file); 
             }
         });
 
