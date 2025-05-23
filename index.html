@@ -47,6 +47,8 @@
             margin-bottom: 16px; 
             border: 1px solid transparent; /* For sortable ghost */
             border-radius: 0.375rem; /* rounded-md */
+            background-color: #ffffff; /* Add background to day section for better visual grouping */
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); /* Tailwind shadow-md */
         }
         .day-section.sortable-ghost {
             background-color: #e0e7ff; /* Light blue for ghost */
@@ -62,7 +64,7 @@
             align-items: center;
             padding: 12px 8px; 
             border-bottom: 1px solid #EEE;
-            margin-bottom: 16px;
+            /* margin-bottom: 16px; Removed margin as day-section now has bg */
             background-color: #fdfdfd;
             border-radius: 6px 6px 0 0;
             cursor: grab; /* Indicate day section is draggable */
@@ -83,7 +85,7 @@
             padding: 4px 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            max-width: 180px; 
+            max-width: 200px; /* Adjusted width for longer placeholder */
         }
         .day-header-controls { 
              display: flex;
@@ -130,18 +132,20 @@
             transition: transform 0.2s ease-in-out;
         }
         .day-content-wrapper {
-            padding-left: 8px; 
-            padding-right: 8px;
+            padding: 0 8px 8px 8px; /* Adjust padding for content within day-section */
         }
         .activity-card {
             background-color: white;
             border-radius: 8px;
             border: 1px solid #E0E0E0;
             padding: 16px;
-            margin-bottom: 16px; 
+            margin-top: 16px; /* Add margin-top instead of bottom for consistency */
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             display: flex;
             cursor: grab; 
+        }
+        .activities-list .activity-card:first-child {
+             margin-top: 0; /* Remove margin for the first card in the list if header has margin-bottom */
         }
         .readonly-activity-card { 
             background-color: white;
@@ -185,8 +189,8 @@
             font-size: 14px;
         }
         .card-image {
-            width: 250px;   
-            height: 200px;  
+            width: 100px;   
+            height: 100px;  
             object-fit: cover; 
             border-radius: 4px;
             margin-top: 8px;
@@ -290,9 +294,10 @@
             .day-section { margin-bottom: 15mm; page-break-inside: avoid; }
             .day-header-container { padding: 0; margin-bottom: 5mm; border-bottom: 2px solid black; background-color: white !important; cursor: default !important; }
             .day-header-title { font-size: 16pt; cursor: default !important; }
-            .date-edit-input-text { display: none !important; } /* Hide text input in print/saved view */
-            .day-content-wrapper { /* display: block !important; */ padding: 0 !important; } /* Keep hidden class effective */
-            .activity-card, .readonly-activity-card { border: 1px solid #ccc; box-shadow: none; padding: 4mm; margin-bottom: 4mm; page-break-inside: avoid; display: flex !important; cursor: default !important; }
+            .date-edit-input-text { display: none !important; } 
+            .day-content-wrapper { /* display: block !important; */ padding: 0 !important; } 
+            .activity-card, .readonly-activity-card { border: 1px solid #ccc; box-shadow: none; padding: 4mm; margin-top: 4mm; margin-bottom: 0; page-break-inside: avoid; display: flex !important; cursor: default !important; }
+            .activities-list .activity-card:first-child, .activities-list .readonly-activity-card:first-child { margin-top: 0; }
             .card-time-icon-area { width: 25mm; flex-direction: column; }
             .card-icon { font-size: 14pt; margin-bottom: 1mm; }
             .card-time { font-size: 10pt; font-weight: bold; min-height: 12pt; }
@@ -312,7 +317,7 @@
         }
         @media print { 
              .card-image { display: none; } 
-             .readonly-collapse-button { display: none !important; } /* Hide collapse button in print */
+             .readonly-collapse-button { display: none !important; } 
         }
 
         .sortable-ghost { opacity: 0.4; background: #F0F8FF; }
@@ -434,7 +439,9 @@
         let tripData = {
             title: "여행 일정표", 
             editingTitle: false, 
-            days: [] 
+            days: [
+                { date: dateToYyyyMmDd(new Date()), activities: [], isCollapsed: false, editingDate: false }
+            ] 
         };
 
         // --- DOM Elements ---
@@ -484,13 +491,28 @@
         function dateToYyyyMmDd(date) {
             const d = new Date(date);
             let month = '' + (d.getMonth() + 1);
-            let day = '' + d.getDate();
+            let dayVal = '' + d.getDate(); 
             const year = d.getFullYear();
             if (month.length < 2) month = '0' + month;
-            if (day.length < 2) day = '0' + day;
-            return [year, month, day].join('-');
+            if (dayVal.length < 2) dayVal = '0' + dayVal;
+            return [year, month, dayVal].join('-');
         }
         
+        function showToastMessage(message, isError = false) {
+            toast.textContent = message;
+            if (isError) {
+                toast.style.backgroundColor = 'red';
+            } else {
+                toast.style.backgroundColor = ''; 
+            }
+            toast.classList.remove('opacity-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                if (isError) toast.style.backgroundColor = ''; 
+            }, 3000);
+        }
+
+
         // --- Icon SVGs ---
         const editIconSVG = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>`;
         const saveIconSVG = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>`;
@@ -583,7 +605,7 @@
                         </div>
                         <div class="day-header-controls">
                             <button class="save-day-button icon-button" data-day-index="${dayIndex}" title="이 날짜 HTML로 저장">${saveDayIconSVG}</button>
-                            <button class="load-day-at-index-button icon-button" data-day-index="${dayIndex}" title="이 다음에 날짜 불러오기">${loadDayAtIndexIconSVG}</button>
+                            <button class="load-day-at-index-button icon-button" data-day-index="${dayIndex}" title="이 날짜에 덮어쓰기">${loadDayAtIndexIconSVG}</button>
                             <button class="delete-day-button icon-button" data-day-index="${dayIndex}" title="이 날짜 전체 삭제">${deleteDayIcon}</button>
                             <button class="day-toggle-button p-1 rounded hover:bg-gray-200" data-day-index="${dayIndex}">
                                 ${day.isCollapsed ? collapsedIcon : expandedIcon}
@@ -620,7 +642,7 @@
                     handleSaveDayAsHtml(dayIdx);
                 });
                 daySection.querySelector('.load-day-at-index-button').addEventListener('click', (e) => {
-                    insertDayAtIndex = parseInt(e.currentTarget.dataset.dayIndex) + 1; 
+                    insertDayAtIndex = parseInt(e.currentTarget.dataset.dayIndex) ; // Changed: Save current index for overwrite
                     loadDayAtIndexHtmlInput.click();
                 });
                 daySection.querySelector('.delete-day-button').addEventListener('click', (e) => {
@@ -630,7 +652,25 @@
                 daySection.querySelector('.day-toggle-button').addEventListener('click', handleToggleDayCollapse);
                 daySection.querySelector('.add-activity-button').addEventListener('click', handleOpenActivityModalForNew);
 
-                new Sortable(activitiesList, { animation: 150, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag', handle: '.activity-card', onEnd: function (evt) { const dayIdx = parseInt(evt.from.dataset.dayIndex); const oldIndex = evt.oldDraggableIndex; const newIndex = evt.newDraggableIndex; if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) { const item = tripData.days[dayIdx].activities.splice(oldIndex, 1)[0]; tripData.days[dayIdx].activities.splice(newIndex, 0, item); } } });
+                new Sortable(activitiesList, { 
+                    group: 'shared-activities', 
+                    animation: 150, 
+                    ghostClass: 'sortable-ghost', 
+                    dragClass: 'sortable-drag', 
+                    handle: '.activity-card', 
+                    onEnd: function (evt) { 
+                        const fromDayIndex = parseInt(evt.from.dataset.dayIndex);
+                        const toDayIndex = parseInt(evt.to.dataset.dayIndex);
+                        const oldActivityIndex = evt.oldDraggableIndex;
+                        const newActivityIndex = evt.newDraggableIndex;
+
+                        if (oldActivityIndex !== undefined && newActivityIndex !== undefined) {
+                            const movedActivity = tripData.days[fromDayIndex].activities.splice(oldActivityIndex, 1)[0];
+                            tripData.days[toDayIndex].activities.splice(newActivityIndex, 0, movedActivity);
+                            renderTrip(); 
+                        }
+                    } 
+                });
             });
             
             if (daysContainer.children.length > 0 && !daysContainer.sortableInstance) {
@@ -695,11 +735,11 @@
         function handleCancelTripTitleEdit() { tripData.editingTitle = false; renderHeaderTitle(); }
 
         // --- Date Editing and Recalculation ---
-        function isValidDateString(dateString) { // YYYY-MM-DD
+        function isValidDateString(dateString) { 
             if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
             const parts = dateString.split("-");
             const year = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10); // 1-12
+            const month = parseInt(parts[1], 10); 
             const day = parseInt(parts[2], 10);
 
             if (year < 1000 || year > 3000 || month === 0 || month > 12) return false;
@@ -710,21 +750,19 @@
 
         function parseAndValidateDateInput(inputValue) {
             let dateStr = inputValue.trim();
-            // Try to parse YYYYMMDD
-            if (/^\d{8}$/.test(dateStr)) {
+            if (/^\d{8}$/.test(dateStr)) { 
                 dateStr = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
             }
-            // Check YYYY-MM-DD format and validity
             if (isValidDateString(dateStr)) {
-                return dateStr; // Return formatted and validated date string
+                return dateStr; 
             }
-            return null; // Invalid format or date
+            return null; 
         }
 
 
         function recalculateAllDates() {
             if (tripData.days.length > 0) {
-                let currentDate = new Date(tripData.days[0].date + "T00:00:00"); // Ensure correct parsing by adding time part for local timezone
+                let currentDate = new Date(tripData.days[0].date + "T00:00:00"); 
                 tripData.days[0].date = dateToYyyyMmDd(currentDate); 
 
                 for (let i = 1; i < tripData.days.length; i++) {
@@ -746,11 +784,9 @@
                     recalculateAllDates(); 
                     renderTrip(); 
                 } else {
-                    alert("잘못된 날짜 형식입니다. YYYY-MM-DD 또는 YYYYMMDD 형식으로 유효한 날짜를 입력해주세요.\n(예: 2025-07-25 또는 20250725)");
-                    // Do not exit editing mode, allow user to correct
+                    showToastMessage("잘못된 날짜 형식입니다. YYYY-MM-DD 또는 YYYYMMDD 형식으로 유효한 날짜를 입력해주세요.\n(예: 2025-07-25 또는 20250725)", true);
                 }
             } else { 
-                 // If input is empty, treat as cancel or revert to original (current behavior is to revert)
                 tripData.days[dayIndex].editingDate = false; 
                 renderTrip(); 
             } 
@@ -793,8 +829,8 @@
             const dayIdx = parseInt(dayIndexInput.value); 
             const currentActivityId = activityIdInput.value; 
             let timeValue = activityTimeInput.value.trim();
-            if (timeValue.length > 0 && (timeValue.length !== 4 || !/^\d{4}$/.test(timeValue))) { alert("시간은 HHMM 형식의 4자리 숫자로 입력하거나 비워두세요. (예: 0930 또는 1700)"); return; }
-            if (timeValue.length === 4) { const hours = parseInt(timeValue.substring(0, 2), 10); const minutes = parseInt(timeValue.substring(2, 4), 10); if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) { alert("유효하지 않은 시간입니다. HH는 00-23, MM은 00-59 사이로 입력해주세요."); return; } }
+            if (timeValue.length > 0 && (timeValue.length !== 4 || !/^\d{4}$/.test(timeValue))) { showToastMessage("시간은 HHMM 형식의 4자리 숫자로 입력하거나 비워두세요. (예: 0930 또는 1700)", true); return; }
+            if (timeValue.length === 4) { const hours = parseInt(timeValue.substring(0, 2), 10); const minutes = parseInt(timeValue.substring(2, 4), 10); if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) { showToastMessage("유효하지 않은 시간입니다. HH는 00-23, MM은 00-59 사이로 입력해주세요.", true); return; } }
             const activityData = { id: currentActivityId || generateId(), time: timeValue, icon: activityIconSelect.value, title: document.getElementById('activityTitle').value, description: document.getElementById('activityDescription').value, locationLink: document.getElementById('activityLocation').value, imageUrl: document.getElementById('activityImageUrl').value, cost: document.getElementById('activityCost').value, notes: document.getElementById('activityNotes').value, }; 
             if (currentActivityId) { const activityIndex = tripData.days[dayIdx].activities.findIndex(act => act.id === currentActivityId); if (activityIndex > -1) { tripData.days[dayIdx].activities[activityIndex] = activityData; } } else { tripData.days[dayIdx].activities.push(activityData); } 
             activityModal.classList.add('hidden'); 
@@ -806,7 +842,7 @@
         addDayButton.addEventListener('click', () => { 
             let newDate; 
             if (tripData.days.length > 0) { 
-                const lastDate = new Date(tripData.days[tripData.days.length - 1].date + "T00:00:00"); // Ensure correct parsing
+                const lastDate = new Date(tripData.days[tripData.days.length - 1].date + "T00:00:00"); 
                 newDate = new Date(lastDate);
                 newDate.setDate(lastDate.getDate() + 1); 
             } else { 
@@ -847,7 +883,7 @@
                         </div>
                     </div>`;
             });
-            const dayHeaderId = `day-header-readonly-single-${dayNumber}`; // Unique ID for single day view
+            const dayHeaderId = `day-header-readonly-single-${dayNumber}`; 
             return `
                 <div class="day-section bg-white shadow-sm rounded-md">
                     <div class="day-header-container" id="${dayHeaderId}">
@@ -890,7 +926,7 @@
                 });
                  const expandedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
                 const collapsedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
-                const isDayCollapsedInSavedView = true; // Default to collapsed for multi-day view
+                const isDayCollapsedInSavedView = true; 
                 const dayHeaderId = `day-header-readonly-trip-${dayIndex}`;
 
 
@@ -931,10 +967,7 @@
         
         // --- PDF, HTML Save/Load ---
         previewButton.addEventListener('click', () => {
-            const originalCollapseStates = tripData.days.map(d => d.isCollapsed);
-            const originalEditingStates = tripData.days.map(d => d.editingDate);
             const originalEditingTitleState = tripData.editingTitle;
-
             tripData.editingTitle = false; 
             renderHeaderTitle(); 
             
@@ -982,9 +1015,10 @@
                 previewWindow.document.write(previewHTML);
                 previewWindow.document.close();
             } else {
-                alert("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.");
+                showToastMessage("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.", true);
             }
-            tripData.editingTitle = originalEditingTitleState;
+            tripData.editingTitle = originalEditingTitleState; 
+            renderHeaderTitle(); 
         });
 
 
@@ -1047,9 +1081,7 @@
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
-            toast.textContent = '읽기 전용 HTML 파일로 저장되었습니다.';
-            toast.classList.remove('opacity-0');
-            setTimeout(() => toast.classList.add('opacity-0'), 2000);
+            showToastMessage('읽기 전용 HTML 파일로 저장되었습니다.');
         });
 
         loadHtmlButtonTrigger.addEventListener('click', () => { loadHtmlInput.click(); });
@@ -1072,17 +1104,16 @@
                                 }
                                 tripData.days.forEach(day => { 
                                     if (typeof day.editingDate === 'undefined') day.editingDate = false;
-                                    // isCollapsed state should be preserved from the loaded file for the main app
                                     if (typeof day.isCollapsed === 'undefined') day.isCollapsed = false; 
                                 });
                                 renderTrip(); 
-                                toast.textContent = 'HTML 파일에서 일정을 불러왔습니다.';
+                                showToastMessage('HTML 파일에서 일정을 불러왔습니다.');
                             } else { throw new Error('유효하지 않은 데이터 형식입니다.'); }
                         } else { throw new Error('HTML 파일에서 여행 일정 데이터를 찾을 수 없습니다. 이 파일은 편집용으로 불러올 수 없습니다.'); }
-                    } catch (err) { console.error("HTML 불러오기 오류:", err); toast.textContent = `오류: ${err.message}`; toast.style.backgroundColor = 'red';
-                    } finally { toast.classList.remove('opacity-0'); setTimeout(() => { toast.classList.add('opacity-0'); toast.style.backgroundColor = ''; }, 3000); loadHtmlInput.value = null; }
+                    } catch (err) { console.error("HTML 불러오기 오류:", err); showToastMessage(`오류: ${err.message}`, true);
+                    } finally { loadHtmlInput.value = null; }
                 };
-                reader.onerror = () => { toast.textContent = '파일을 읽는 중 오류가 발생했습니다.'; toast.style.backgroundColor = 'red'; toast.classList.remove('opacity-0'); setTimeout(() => { toast.classList.add('opacity-0'); toast.style.backgroundColor = ''; }, 3000); loadHtmlInput.value = null; };
+                reader.onerror = () => { showToastMessage('파일을 읽는 중 오류가 발생했습니다.', true); loadHtmlInput.value = null; };
                 reader.readAsText(file);
             }
         });
@@ -1091,9 +1122,7 @@
         function handleSaveDayAsHtml(dayIndex) {
             if (dayIndex < 0 || dayIndex >= tripData.days.length) return;
             const dayDataToSave = JSON.parse(JSON.stringify(tripData.days[dayIndex])); 
-            // For single day save, ensure it's not collapsed in its own view
-            // dayDataToSave.isCollapsed = false; // Or remove this line if you want to save its current state
-
+            
             const dayDataString = JSON.stringify(dayDataToSave);
             const safeDayDataString = dayDataString.replace(/<\/script>/g, '<\\/script>');
             
@@ -1118,9 +1147,8 @@
                         body { font-family: 'Noto Sans KR', sans-serif; background-color: #F8F9FA; }
                         ${styles}
                         .readonly-view-header h1 { font-size: 1.25rem; } 
-                        /* Ensure day content is visible for single day save */
                         .saved-html-view .day-content-wrapper { display: block !important; }
-                        .saved-html-view .day-header-controls .day-toggle-button-static { display: none !important; } /* Hide toggle for single day view */
+                        .saved-html-view .day-header-controls .day-toggle-button-static { display: none !important; } 
                     </style>
                 </head>
                 <body class="text-gray-800">
@@ -1146,12 +1174,9 @@
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
             
-            toast.textContent = `DAY ${dayIndex + 1} 일정이 HTML 파일로 저장되었습니다.`;
-            toast.classList.remove('opacity-0');
-            setTimeout(() => toast.classList.add('opacity-0'), 2000);
+            showToastMessage(`DAY ${dayIndex + 1} 일정이 HTML 파일로 저장되었습니다.`);
         }
 
-        // Event listener for the new "load day at index" file input
         loadDayAtIndexHtmlInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file && insertDayAtIndex !== -1) { 
@@ -1166,16 +1191,16 @@
                         if (embeddedDataElement && embeddedDataElement.textContent) {
                             const loadedDayData = JSON.parse(embeddedDataElement.textContent);
                             if (loadedDayData && loadedDayData.date && Array.isArray(loadedDayData.activities)) {
-                                const newDayData = {
-                                    ...loadedDayData,
-                                    activities: loadedDayData.activities.map(act => ({...act, id: generateId()})), 
-                                    isCollapsed: false,
-                                    editingDate: false
-                                };
-                                tripData.days.splice(insertDayAtIndex, 0, newDayData);
-                                recalculateAllDates();
+                                // Overwrite the activities of the target day
+                                tripData.days[insertDayAtIndex].activities = loadedDayData.activities.map(act => ({...act, id: generateId()}));
+                                // Preserve the original date of the target day section
+                                tripData.days[insertDayAtIndex].date = loadedDayData.date; // Overwrite date as well
+                                tripData.days[insertDayAtIndex].isCollapsed = false;
+                                tripData.days[insertDayAtIndex].editingDate = false;
+                                
+                                recalculateAllDates(); // Recalculate all dates after potential date change
                                 renderTrip();
-                                toast.textContent = '저장된 날짜를 현재 위치 다음에 삽입했습니다.';
+                                showToastMessage(`DAY ${insertDayAtIndex + 1} 일정을 불러온 내용으로 덮어썼습니다.`);
                             } else {
                                 throw new Error('유효하지 않은 날짜 데이터 형식입니다.');
                             }
@@ -1183,24 +1208,15 @@
                             throw new Error('HTML 파일에서 날짜 데이터를 찾을 수 없습니다.');
                         }
                     } catch (err) {
-                        console.error("날짜 HTML 불러오기 오류:", err);
-                        toast.textContent = `오류: ${err.message}`;
-                        toast.style.backgroundColor = 'red';
+                        console.error("날짜 HTML 덮어쓰기 오류:", err);
+                        showToastMessage(`오류: ${err.message}`, true);
                     } finally {
-                        toast.classList.remove('opacity-0');
-                        setTimeout(() => {
-                            toast.classList.add('opacity-0');
-                            toast.style.backgroundColor = ''; 
-                        }, 3000);
                         loadDayAtIndexHtmlInput.value = null; 
                         insertDayAtIndex = -1; 
                     }
                 };
                 reader.onerror = () => { 
-                    toast.textContent = '파일을 읽는 중 오류가 발생했습니다.'; 
-                    toast.style.backgroundColor = 'red'; 
-                    toast.classList.remove('opacity-0'); 
-                    setTimeout(() => { toast.classList.add('opacity-0'); toast.style.backgroundColor = ''; }, 3000); 
+                    showToastMessage('파일을 읽는 중 오류가 발생했습니다.', true); 
                     loadDayAtIndexHtmlInput.value = null;
                     insertDayAtIndex = -1; 
                 };
@@ -1244,10 +1260,10 @@
                             const title = row[2] ? String(row[2]).trim() : "";
                             const description = row[3] ? String(row[3]).trim() : "";
                             const icon = row[4] ? String(row[4]).trim() : "";
-                            const locationLink = row[5] ? String(row[5]).trim() : ""; // F열: 구글 URL
-                            const imageUrl = row[6] ? String(row[6]).trim() : "";     // G열: 이미지 URL
-                            const cost = row[7] ? String(row[7]).trim() : "";         // H열: 비용
-                            const notes = row[8] ? String(row[8]).trim() : "";        // I열: 기타 메모
+                            const locationLink = row[5] ? String(row[5]).trim() : ""; 
+                            const imageUrl = row[6] ? String(row[6]).trim() : "";     
+                            const cost = row[7] ? String(row[7]).trim() : "";         
+                            const notes = row[8] ? String(row[8]).trim() : "";        
 
 
                             let formattedDate = "";
@@ -1306,35 +1322,28 @@
                         }
                         
                         if (errors.length > 0) {
-                            alert("엑셀 데이터 불러오기 중 다음 오류가 발생했습니다:\n\n" + errors.join("\n") + "\n\n유효한 데이터만 반영됩니다.");
+                            showToastMessage("엑셀 데이터 불러오기 중 일부 오류가 발생했습니다. 자세한 내용은 콘솔을 확인하세요.", true);
+                            console.warn("엑셀 불러오기 오류:\n" + errors.join("\n"));
                         }
 
                         if (newDaysData.length > 0) {
                             tripData.days = newDaysData;
                             renderTrip();
-                            toast.textContent = '엑셀에서 일정을 성공적으로 불러왔습니다.';
+                            showToastMessage('엑셀에서 일정을 성공적으로 불러왔습니다.');
                         } else if (errors.length > 0 && newDaysData.length === 0) {
-                             toast.textContent = '엑셀에서 유효한 데이터를 불러오지 못했습니다. 오류를 확인해주세요.';
-                             toast.style.backgroundColor = 'orange';
+                             showToastMessage('엑셀에서 유효한 데이터를 불러오지 못했습니다. 오류를 확인해주세요.', true);
                         } else {
-                             toast.textContent = '엑셀 파일에 처리할 데이터가 없습니다.';
-                             toast.style.backgroundColor = 'orange';
+                             showToastMessage('엑셀 파일에 처리할 데이터가 없습니다.', true);
                         }
 
                     } catch (err) {
                         console.error("엑셀 불러오기 오류:", err);
-                        toast.textContent = `엑셀 파일 처리 중 오류: ${err.message}`;
-                        toast.style.backgroundColor = 'red';
+                        showToastMessage(`엑셀 파일 처리 중 오류: ${err.message}`, true);
                     } finally {
-                        toast.classList.remove('opacity-0');
-                        setTimeout(() => {
-                            toast.classList.add('opacity-0');
-                            toast.style.backgroundColor = ''; 
-                        }, 5000);
                         loadExcelInput.value = null; 
                     }
                 };
-                reader.onerror = () => { /* ... */ };
+                reader.onerror = () => { showToastMessage('파일을 읽는 중 오류가 발생했습니다.', true); loadExcelInput.value = null; };
                 reader.readAsArrayBuffer(file); 
             }
         });
