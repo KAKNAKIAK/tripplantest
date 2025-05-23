@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>모바일 추천일정표 만들기</title>
+    <title>웹 기반 여행 일정표</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -78,7 +78,7 @@
             font-weight: 600; 
             /* cursor: pointer; No longer needed for collapse, header container is clickable */
         }
-        .date-edit-input {
+        .date-edit-input-text { /* Changed from date-edit-input for type=text */
             font-size: 16px;
             padding: 4px 8px;
             border: 1px solid #ccc;
@@ -290,7 +290,7 @@
             .day-section { margin-bottom: 15mm; page-break-inside: avoid; }
             .day-header-container { padding: 0; margin-bottom: 5mm; border-bottom: 2px solid black; background-color: white !important; cursor: default !important; }
             .day-header-title { font-size: 16pt; cursor: default !important; }
-            .date-edit-input { display: none !important; }
+            .date-edit-input-text { display: none !important; } /* Hide text input in print/saved view */
             .day-content-wrapper { /* display: block !important; */ padding: 0 !important; } /* Keep hidden class effective */
             .activity-card, .readonly-activity-card { border: 1px solid #ccc; box-shadow: none; padding: 4mm; margin-bottom: 4mm; page-break-inside: avoid; display: flex !important; cursor: default !important; }
             .card-time-icon-area { width: 25mm; flex-direction: column; }
@@ -427,7 +427,7 @@
     <script>
         // --- Predefined Emojis ---
         const travelEmojis = [
-            { value: "", display: "아이콘 없음" }, { value: "✈️", display: "✈️ 항공" }, { value: "🏨", display: "� 숙소" }, { value: "🍽️", display: "🍽️ 식사" }, { value: "🏛️", display: "🏛️ 관광(실내)" }, { value: "🏞️", display: "🏞️ 관광(야외)" }, { value: "🚶", display: "🚶 이동(도보)" }, { value: "🚌", display: "🚌 이동(버스)" }, { value: "🚆", display: "🚆 이동(기차)" }, { value: "🚢", display: "🚢 이동(배)" }, { value: "🚕", display: "🚕 이동(택시)" }, { value: "🛍️", display: "🛍️ 쇼핑" }, { value: "📷", display: "📷 사진촬영" }, { value: "🗺️", display: "🗺️ 계획/지도" }, { value: "📌", display: "📌 중요장소" }, { value: "☕", display: "☕ 카페/휴식" }, { value: "🎭", display: "🎭 공연/문화" }, { value: "💼", display: "💼 업무" }, { value: "ℹ️", display: "ℹ️ 정보" }
+            { value: "", display: "아이콘 없음" }, { value: "✈️", display: "✈️ 항공" }, { value: "🏨", display: "🏨 숙소" }, { value: "🍽️", display: "🍽️ 식사" }, { value: "🏛️", display: "🏛️ 관광(실내)" }, { value: "🏞️", display: "🏞️ 관광(야외)" }, { value: "🚶", display: "🚶 이동(도보)" }, { value: "🚌", display: "🚌 이동(버스)" }, { value: "🚆", display: "🚆 이동(기차)" }, { value: "🚢", display: "🚢 이동(배)" }, { value: "🚕", display: "🚕 이동(택시)" }, { value: "🛍️", display: "🛍️ 쇼핑" }, { value: "📷", display: "📷 사진촬영" }, { value: "🗺️", display: "🗺️ 계획/지도" }, { value: "📌", display: "📌 중요장소" }, { value: "☕", display: "☕ 카페/휴식" }, { value: "🎭", display: "🎭 공연/문화" }, { value: "💼", display: "💼 업무" }, { value: "ℹ️", display: "ℹ️ 정보" }
         ];
 
         // --- Data ---
@@ -565,7 +565,7 @@
                 let dateDisplayHTML;
                 if (day.editingDate) {
                     dateDisplayHTML = `
-                        <input type="date" class="date-edit-input" value="${day.date}" data-day-index="${dayIndex}">
+                        <input type="text" class="date-edit-input-text" value="${day.date}" data-day-index="${dayIndex}" placeholder="YYYY-MM-DD 또는 YYYYMMDD">
                         <button class="save-date-button icon-button" data-day-index="${dayIndex}" title="날짜 저장">${saveIconSVG}</button>
                         <button class="cancel-date-edit-button icon-button" data-day-index="${dayIndex}" title="취소">${cancelIconSVG}</button>
                     `;
@@ -695,9 +695,36 @@
         function handleCancelTripTitleEdit() { tripData.editingTitle = false; renderHeaderTitle(); }
 
         // --- Date Editing and Recalculation ---
+        function isValidDateString(dateString) { // YYYY-MM-DD
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
+            const parts = dateString.split("-");
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10); // 1-12
+            const day = parseInt(parts[2], 10);
+
+            if (year < 1000 || year > 3000 || month === 0 || month > 12) return false;
+            const monthLength = [31, (year % 400 === 0 || (year % 100 !== 0 && year % 4 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            if (day === 0 || day > monthLength[month - 1]) return false;
+            return true;
+        }
+
+        function parseAndValidateDateInput(inputValue) {
+            let dateStr = inputValue.trim();
+            // Try to parse YYYYMMDD
+            if (/^\d{8}$/.test(dateStr)) {
+                dateStr = `${dateStr.substring(0, 4)}-${dateStr.substring(4, 6)}-${dateStr.substring(6, 8)}`;
+            }
+            // Check YYYY-MM-DD format and validity
+            if (isValidDateString(dateStr)) {
+                return dateStr; // Return formatted and validated date string
+            }
+            return null; // Invalid format or date
+        }
+
+
         function recalculateAllDates() {
             if (tripData.days.length > 0) {
-                let currentDate = new Date(tripData.days[0].date);
+                let currentDate = new Date(tripData.days[0].date + "T00:00:00"); // Ensure correct parsing by adding time part for local timezone
                 tripData.days[0].date = dateToYyyyMmDd(currentDate); 
 
                 for (let i = 1; i < tripData.days.length; i++) {
@@ -710,15 +737,23 @@
         function handleEditDate(event) { const dayIndex = parseInt(event.currentTarget.dataset.dayIndex); tripData.days.forEach((day, index) => { day.editingDate = (index === dayIndex); }); renderTrip(); }
         function handleSaveDate(event) { 
             const dayIndex = parseInt(event.currentTarget.dataset.dayIndex); 
-            const dateInput = document.querySelector(`.date-edit-input[data-day-index="${dayIndex}"]`); 
+            const dateInput = document.querySelector(`.date-edit-input-text[data-day-index="${dayIndex}"]`); 
             if (dateInput && dateInput.value) { 
-                tripData.days[dayIndex].date = dateInput.value; 
-                tripData.days[dayIndex].editingDate = false; 
-                recalculateAllDates(); 
+                const validatedDate = parseAndValidateDateInput(dateInput.value);
+                if (validatedDate) {
+                    tripData.days[dayIndex].date = validatedDate; 
+                    tripData.days[dayIndex].editingDate = false; 
+                    recalculateAllDates(); 
+                    renderTrip(); 
+                } else {
+                    alert("잘못된 날짜 형식입니다. YYYY-MM-DD 또는 YYYYMMDD 형식으로 유효한 날짜를 입력해주세요.\n(예: 2025-07-25 또는 20250725)");
+                    // Do not exit editing mode, allow user to correct
+                }
             } else { 
+                 // If input is empty, treat as cancel or revert to original (current behavior is to revert)
                 tripData.days[dayIndex].editingDate = false; 
+                renderTrip(); 
             } 
-            renderTrip(); 
         }
         function handleCancelDateEdit(event) { const dayIndex = parseInt(event.currentTarget.dataset.dayIndex); tripData.days[dayIndex].editingDate = false; renderTrip(); }
         function handleToggleDayCollapse(event) { 
@@ -771,7 +806,7 @@
         addDayButton.addEventListener('click', () => { 
             let newDate; 
             if (tripData.days.length > 0) { 
-                const lastDate = new Date(tripData.days[tripData.days.length - 1].date); 
+                const lastDate = new Date(tripData.days[tripData.days.length - 1].date + "T00:00:00"); // Ensure correct parsing
                 newDate = new Date(lastDate);
                 newDate.setDate(lastDate.getDate() + 1); 
             } else { 
@@ -853,7 +888,7 @@
                             </div>
                         </div>`;
                 });
-                const expandedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+                 const expandedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
                 const collapsedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
                 const isDayCollapsedInSavedView = true; // Default to collapsed for multi-day view
                 const dayHeaderId = `day-header-readonly-trip-${dayIndex}`;
@@ -900,12 +935,10 @@
             const originalEditingStates = tripData.days.map(d => d.editingDate);
             const originalEditingTitleState = tripData.editingTitle;
 
-            // For preview, keep the current collapse state from tripData for a more accurate preview
-            // tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; }); 
-            tripData.editingTitle = false; // Ensure title is not in edit mode for preview
-            renderHeaderTitle(); // Update header display before generating HTML
+            tripData.editingTitle = false; 
+            renderHeaderTitle(); 
             
-            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData); // Pass current tripData
+            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData); 
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
             const tailwindCDN = '<script src="https://cdn.tailwindcss.com"><\/script>';
@@ -951,28 +984,20 @@
             } else {
                 alert("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.");
             }
-
-            // Revert to original states for the main app if they were changed for preview generation
-            // tripData.days.forEach((d, i) => { 
-            //     d.isCollapsed = originalCollapseStates[i]; 
-            //     d.editingDate = originalEditingStates[i];
-            // });
-            // tripData.editingTitle = originalEditingTitleState;
-            // renderTrip(); // Re-render if state was changed
+            tripData.editingTitle = originalEditingTitleState;
         });
 
 
         savePdfButton.addEventListener('click', () => { const originalCollapseStates = tripData.days.map(d => d.isCollapsed); const originalEditingStates = tripData.days.map(d => d.editingDate); tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; }); tripData.editingTitle = false; renderTrip(); setTimeout(() => { window.print(); tripData.days.forEach((d, i) => { d.isCollapsed = originalCollapseStates[i]; d.editingDate = originalEditingStates[i]; }); renderTrip(); }, 100); });
         
         saveHtmlButton.addEventListener('click', () => {
-            const tripDataToSave = JSON.parse(JSON.stringify(tripData)); // Create a deep copy
-            // Ensure all days are marked as collapsed for the saved HTML view by default
+            const tripDataToSave = JSON.parse(JSON.stringify(tripData)); 
             tripDataToSave.days.forEach(day => day.isCollapsed = true);
-            tripDataToSave.editingTitle = false; // Ensure title is not in edit mode
+            tripDataToSave.editingTitle = false; 
 
-            const tripDataString = JSON.stringify(tripData); // Save original tripData for re-import
+            const tripDataString = JSON.stringify(tripData); 
             const safeTripDataString = tripDataString.replace(/<\/script>/g, '<\\/script>');
-            const readOnlyViewHTML = generateReadOnlyHTMLView(tripDataToSave); // Generate view with all days collapsed
+            const readOnlyViewHTML = generateReadOnlyHTMLView(tripDataToSave); 
 
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
@@ -1321,4 +1346,3 @@
     </script>
 </body>
 </html>
-�
