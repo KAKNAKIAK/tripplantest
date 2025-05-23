@@ -270,6 +270,19 @@
             margin-right: auto;
             padding: 1rem; 
         }
+        .readonly-collapse-button {
+            font-size: 0.75rem; /* text-xs */
+            color: #4B5563; /* gray-600 */
+            padding: 0.25rem 0.5rem; /* py-1 px-2 */
+            border: 1px solid #D1D5DB; /* border-gray-300 */
+            border-radius: 0.375rem; /* rounded-md */
+            cursor: pointer;
+        }
+        .readonly-collapse-button:hover {
+            color: #1F2937; /* gray-800 */
+            background-color: #F3F4F6; /* gray-100 */
+        }
+
 
         @media print, .saved-html-view { 
             .header, .add-day-button-container, .add-activity-button, #activityModal, #confirmDeleteDayModal, .day-toggle-button, .edit-date-button, .save-date-button, .cancel-date-edit-button, .delete-day-button, #saveHtmlButton, #loadHtmlButtonTrigger, .edit-trip-title-button, .save-trip-title-button, .cancel-trip-title-edit-button, .card-actions-direct, #loadDayHtmlButtonTrigger, .save-day-button, .load-day-at-index-button, #previewButton, #loadExcelButtonTrigger { display: none !important; }
@@ -278,7 +291,7 @@
             .day-header-container { padding: 0; margin-bottom: 5mm; border-bottom: 2px solid black; background-color: white !important; cursor: default !important; }
             .day-header-title { font-size: 16pt; cursor: default !important; }
             .date-edit-input { display: none !important; }
-            .day-content-wrapper { display: block !important; padding: 0 !important; }
+            .day-content-wrapper { /* display: block !important; */ padding: 0 !important; } /* Keep hidden class effective */
             .activity-card, .readonly-activity-card { border: 1px solid #ccc; box-shadow: none; padding: 4mm; margin-bottom: 4mm; page-break-inside: avoid; display: flex !important; cursor: default !important; }
             .card-time-icon-area { width: 25mm; flex-direction: column; }
             .card-icon { font-size: 14pt; margin-bottom: 1mm; }
@@ -299,6 +312,7 @@
         }
         @media print { 
              .card-image { display: none; } 
+             .readonly-collapse-button { display: none !important; } /* Hide collapse button in print */
         }
 
         .sortable-ghost { opacity: 0.4; background: #F0F8FF; }
@@ -413,7 +427,7 @@
     <script>
         // --- Predefined Emojis ---
         const travelEmojis = [
-            { value: "", display: "아이콘 없음" }, { value: "✈️", display: "✈️ 항공" }, { value: "🏨", display: "🏨 숙소" }, { value: "🍽️", display: "🍽️ 식사" }, { value: "🏛️", display: "🏛️ 관광(실내)" }, { value: "🏞️", display: "🏞️ 관광(야외)" }, { value: "🚶", display: "🚶 이동(도보)" }, { value: "🚌", display: "🚌 이동(버스)" }, { value: "🚆", display: "🚆 이동(기차)" }, { value: "🚢", display: "🚢 이동(배)" }, { value: "🚕", display: "🚕 이동(택시)" }, { value: "🛍️", display: "🛍️ 쇼핑" }, { value: "📷", display: "📷 사진촬영" }, { value: "🗺️", display: "🗺️ 계획/지도" }, { value: "📌", display: "📌 중요장소" }, { value: "☕", display: "☕ 카페/휴식" }, { value: "🎭", display: "🎭 공연/문화" }, { value: "💼", display: "💼 업무" }, { value: "ℹ️", display: "ℹ️ 정보" }
+            { value: "", display: "아이콘 없음" }, { value: "✈️", display: "✈️ 항공" }, { value: "🏨", display: "� 숙소" }, { value: "🍽️", display: "🍽️ 식사" }, { value: "🏛️", display: "🏛️ 관광(실내)" }, { value: "🏞️", display: "🏞️ 관광(야외)" }, { value: "🚶", display: "🚶 이동(도보)" }, { value: "🚌", display: "🚌 이동(버스)" }, { value: "🚆", display: "🚆 이동(기차)" }, { value: "🚢", display: "🚢 이동(배)" }, { value: "🚕", display: "🚕 이동(택시)" }, { value: "🛍️", display: "🛍️ 쇼핑" }, { value: "📷", display: "📷 사진촬영" }, { value: "🗺️", display: "🗺️ 계획/지도" }, { value: "📌", display: "📌 중요장소" }, { value: "☕", display: "☕ 카페/휴식" }, { value: "🎭", display: "🎭 공연/문화" }, { value: "💼", display: "💼 업무" }, { value: "ℹ️", display: "ℹ️ 정보" }
         ];
 
         // --- Data ---
@@ -798,10 +812,10 @@
                         </div>
                     </div>`;
             });
-
+            const dayHeaderId = `day-header-readonly-single-${dayNumber}`; // Unique ID for single day view
             return `
                 <div class="day-section bg-white shadow-sm rounded-md">
-                    <div class="day-header-container">
+                    <div class="day-header-container" id="${dayHeaderId}">
                         <div class="day-header-main">
                             <h2 class="day-header-title">${formatDate(dayData.date, dayNumber)}</h2>
                         </div>
@@ -839,13 +853,15 @@
                             </div>
                         </div>`;
                 });
-                 const expandedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
+                const expandedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>`;
                 const collapsedIcon = `<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
-                const isDayCollapsedInSavedView = day.isCollapsed || false; 
+                const isDayCollapsedInSavedView = true; // Default to collapsed for multi-day view
+                const dayHeaderId = `day-header-readonly-trip-${dayIndex}`;
+
 
                 daysHTML += `
                     <div class="day-section bg-white shadow-sm rounded-md">
-                        <div class="day-header-container" onclick="toggleDayView(this)">
+                        <div class="day-header-container" id="${dayHeaderId}" onclick="toggleDayView(this)">
                             <div class="day-header-main">
                                 <h2 class="day-header-title">${formatDate(day.date, dayIndex + 1)}</h2>
                             </div>
@@ -858,6 +874,11 @@
                         <div class="day-content-wrapper ${isDayCollapsedInSavedView ? 'hidden' : ''}">
                             <div class="activities-list pt-3">
                                 ${activitiesHTML}
+                            </div>
+                             <div class="text-right p-2 mt-2">
+                                <button type="button" class="readonly-collapse-button" onclick="document.getElementById('${dayHeaderId}').click(); event.stopPropagation();">
+                                    일차 접기
+                                </button>
                             </div>
                         </div>
                     </div>`;
@@ -879,10 +900,12 @@
             const originalEditingStates = tripData.days.map(d => d.editingDate);
             const originalEditingTitleState = tripData.editingTitle;
 
-            tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; });
-            tripData.editingTitle = false;
+            // For preview, keep the current collapse state from tripData for a more accurate preview
+            // tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; }); 
+            tripData.editingTitle = false; // Ensure title is not in edit mode for preview
+            renderHeaderTitle(); // Update header display before generating HTML
             
-            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData);
+            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData); // Pass current tripData
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
             const tailwindCDN = '<script src="https://cdn.tailwindcss.com"><\/script>';
@@ -929,20 +952,28 @@
                 alert("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.");
             }
 
-            tripData.days.forEach((d, i) => { 
-                d.isCollapsed = originalCollapseStates[i]; 
-                d.editingDate = originalEditingStates[i];
-            });
-            tripData.editingTitle = originalEditingTitleState;
+            // Revert to original states for the main app if they were changed for preview generation
+            // tripData.days.forEach((d, i) => { 
+            //     d.isCollapsed = originalCollapseStates[i]; 
+            //     d.editingDate = originalEditingStates[i];
+            // });
+            // tripData.editingTitle = originalEditingTitleState;
+            // renderTrip(); // Re-render if state was changed
         });
 
 
         savePdfButton.addEventListener('click', () => { const originalCollapseStates = tripData.days.map(d => d.isCollapsed); const originalEditingStates = tripData.days.map(d => d.editingDate); tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; }); tripData.editingTitle = false; renderTrip(); setTimeout(() => { window.print(); tripData.days.forEach((d, i) => { d.isCollapsed = originalCollapseStates[i]; d.editingDate = originalEditingStates[i]; }); renderTrip(); }, 100); });
         
         saveHtmlButton.addEventListener('click', () => {
-            const tripDataString = JSON.stringify(tripData);
+            const tripDataToSave = JSON.parse(JSON.stringify(tripData)); // Create a deep copy
+            // Ensure all days are marked as collapsed for the saved HTML view by default
+            tripDataToSave.days.forEach(day => day.isCollapsed = true);
+            tripDataToSave.editingTitle = false; // Ensure title is not in edit mode
+
+            const tripDataString = JSON.stringify(tripData); // Save original tripData for re-import
             const safeTripDataString = tripDataString.replace(/<\/script>/g, '<\\/script>');
-            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData);
+            const readOnlyViewHTML = generateReadOnlyHTMLView(tripDataToSave); // Generate view with all days collapsed
+
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
             const tailwindCDN = '<script src="https://cdn.tailwindcss.com"><\/script>';
@@ -1016,7 +1047,8 @@
                                 }
                                 tripData.days.forEach(day => { 
                                     if (typeof day.editingDate === 'undefined') day.editingDate = false;
-                                    if (typeof day.isCollapsed === 'undefined') day.isCollapsed = false;
+                                    // isCollapsed state should be preserved from the loaded file for the main app
+                                    if (typeof day.isCollapsed === 'undefined') day.isCollapsed = false; 
                                 });
                                 renderTrip(); 
                                 toast.textContent = 'HTML 파일에서 일정을 불러왔습니다.';
@@ -1033,12 +1065,15 @@
         // --- Individual Day Save/Load ---
         function handleSaveDayAsHtml(dayIndex) {
             if (dayIndex < 0 || dayIndex >= tripData.days.length) return;
-            const dayData = JSON.parse(JSON.stringify(tripData.days[dayIndex])); 
-            const dayDataString = JSON.stringify(dayData);
+            const dayDataToSave = JSON.parse(JSON.stringify(tripData.days[dayIndex])); 
+            // For single day save, ensure it's not collapsed in its own view
+            // dayDataToSave.isCollapsed = false; // Or remove this line if you want to save its current state
+
+            const dayDataString = JSON.stringify(dayDataToSave);
             const safeDayDataString = dayDataString.replace(/<\/script>/g, '<\\/script>');
             
             const dayNumberForView = dayIndex + 1; 
-            const readOnlyDayViewHTML = generateReadOnlyDayView(dayData, dayNumberForView); 
+            const readOnlyDayViewHTML = generateReadOnlyDayView(dayDataToSave, dayNumberForView); 
             
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
@@ -1051,18 +1086,21 @@
                 <head>
                     <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>DAY ${dayNumberForView} 일정 (${dayData.date})</title>
+                    <title>DAY ${dayNumberForView} 일정 (${dayDataToSave.date})</title>
                     ${tailwindCDN}
                     ${googleFontLink}
                     <style>
                         body { font-family: 'Noto Sans KR', sans-serif; background-color: #F8F9FA; }
                         ${styles}
                         .readonly-view-header h1 { font-size: 1.25rem; } 
+                        /* Ensure day content is visible for single day save */
+                        .saved-html-view .day-content-wrapper { display: block !important; }
+                        .saved-html-view .day-header-controls .day-toggle-button-static { display: none !important; } /* Hide toggle for single day view */
                     </style>
                 </head>
                 <body class="text-gray-800">
                     <header class="readonly-view-header">
-                         <h1>DAY ${dayNumberForView} : ${new Date(dayData.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</h1>
+                         <h1>DAY ${dayNumberForView} : ${new Date(dayDataToSave.date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</h1>
                     </header>
                     <main class="readonly-main-content saved-html-view">
                         ${readOnlyDayViewHTML}
@@ -1074,7 +1112,7 @@
                 </html>`;
 
             const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-            const fileName = `DAY${dayIndex + 1}_${dayData.date}_일정.html`;
+            const fileName = `DAY${dayIndex + 1}_${dayDataToSave.date}_일정.html`;
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = fileName;
@@ -1283,3 +1321,4 @@
     </script>
 </body>
 </html>
+�
