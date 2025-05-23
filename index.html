@@ -418,9 +418,9 @@
 
         // --- Data ---
         let tripData = {
-            title: "여행 일정표", // Default title
+            title: "여행 일정표", 
             editingTitle: false, 
-            days: [] // Start with no days
+            days: [] 
         };
 
         // --- DOM Elements ---
@@ -1181,9 +1181,11 @@
                             const title = row[2] ? String(row[2]).trim() : "";
                             const description = row[3] ? String(row[3]).trim() : "";
                             const icon = row[4] ? String(row[4]).trim() : "";
-                            const imageUrl = row[5] ? String(row[5]).trim() : "";
-                            const cost = row[6] ? String(row[6]).trim() : "";
-                            const notes = row[7] ? String(row[7]).trim() : "";
+                            const locationLink = row[5] ? String(row[5]).trim() : ""; // F열: 구글 URL
+                            const imageUrl = row[6] ? String(row[6]).trim() : "";     // G열: 이미지 URL
+                            const cost = row[7] ? String(row[7]).trim() : "";         // H열: 비용
+                            const notes = row[8] ? String(row[8]).trim() : "";        // I열: 기타 메모
+
 
                             let formattedDate = "";
                             if (!rawDate) {
@@ -1233,7 +1235,7 @@
                                 icon: icon,
                                 title: title,
                                 description: description,
-                                locationLink: "", 
+                                locationLink: locationLink, 
                                 imageUrl: imageUrl,
                                 cost: cost,
                                 notes: notes
@@ -1246,9 +1248,6 @@
 
                         if (newDaysData.length > 0) {
                             tripData.days = newDaysData;
-                            // Do not recalculate dates if we want to preserve exact dates from Excel.
-                            // If sequential dates are desired after import, then call recalculateAllDates().
-                            // For now, we assume Excel dates are what the user wants.
                             renderTrip();
                             toast.textContent = '엑셀에서 일정을 성공적으로 불러왔습니다.';
                         } else if (errors.length > 0 && newDaysData.length === 0) {
