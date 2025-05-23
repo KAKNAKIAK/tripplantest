@@ -271,7 +271,7 @@
         }
 
         @media print, .saved-html-view { 
-            .header, .add-day-button-container, .add-activity-button, #activityModal, #confirmDeleteDayModal, .day-toggle-button, .edit-date-button, .save-date-button, .cancel-date-edit-button, .delete-day-button, #saveHtmlButton, #loadHtmlButtonTrigger, .edit-trip-title-button, .save-trip-title-button, .cancel-trip-title-edit-button, .card-actions-direct, #loadDayHtmlButtonTrigger, .save-day-button, .load-day-at-index-button { display: none !important; }
+            .header, .add-day-button-container, .add-activity-button, #activityModal, #confirmDeleteDayModal, .day-toggle-button, .edit-date-button, .save-date-button, .cancel-date-edit-button, .delete-day-button, #saveHtmlButton, #loadHtmlButtonTrigger, .edit-trip-title-button, .save-trip-title-button, .cancel-trip-title-edit-button, .card-actions-direct, #loadDayHtmlButtonTrigger, .save-day-button, .load-day-at-index-button, #previewButton /* Hide preview button in print/saved view */ { display: none !important; }
             .main-content, .readonly-main-content { padding: 0 !important; }
             .day-section { margin-bottom: 15mm; page-break-inside: avoid; }
             .day-header-container { padding: 0; margin-bottom: 5mm; border-bottom: 2px solid black; background-color: white !important; cursor: default !important; }
@@ -311,6 +311,10 @@
             <div id="headerTitleSection" class="header-title-container">
                 </div>
             <div class="flex items-center space-x-2"> 
+                <button id="previewButton" class="action-button bg-purple-500 text-white hover:bg-purple-600" title="미리보기">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span class="hidden sm:inline">미리보기</span>
+                </button>
                 <button id="savePdfButton" class="action-button bg-blue-500 text-white hover:bg-blue-600" title="PDF로 저장">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16"y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     <span class="hidden sm:inline">PDF 저장</span>
@@ -424,6 +428,7 @@
         const dayIndexInput = document.getElementById('dayIndex');
         const activityTimeInput = document.getElementById('activityTimeInput'); 
         const activityIconSelect = document.getElementById('activityIconSelect'); 
+        const previewButton = document.getElementById('previewButton'); // New Preview Button
         const savePdfButton = document.getElementById('savePdfButton');
         const saveHtmlButton = document.getElementById('saveHtmlButton'); 
         const loadHtmlInput = document.getElementById('loadHtmlInput'); 
@@ -752,7 +757,7 @@
             } 
             const newDay = { date: dateToYyyyMmDd(newDate), activities: [], isCollapsed: false, editingDate: false }; 
             tripData.days.push(newDay); 
-            // No need to call recalculateAllDates here if we are just appending to the end with +1 logic
+            recalculateAllDates();
             renderTrip(); 
         });
         
@@ -861,6 +866,75 @@
         }
         
         // --- PDF, HTML Save/Load ---
+        previewButton.addEventListener('click', () => {
+            const originalCollapseStates = tripData.days.map(d => d.isCollapsed);
+            const originalEditingStates = tripData.days.map(d => d.editingDate);
+            const originalEditingTitleState = tripData.editingTitle;
+
+            tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; });
+            tripData.editingTitle = false;
+            // Render once to ensure all data is in display mode for generateReadOnlyHTMLView
+            // This step might be redundant if generateReadOnlyHTMLView correctly uses tripData
+            // but ensures consistency if renderTrip() had side effects on data for display.
+            // For preview, we don't need to call renderTrip() if generateReadOnlyHTMLView is robust.
+
+            const readOnlyViewHTML = generateReadOnlyHTMLView(tripData);
+            let styles = "";
+            document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
+            const tailwindCDN = '<script src="https://cdn.tailwindcss.com"><\/script>';
+            const googleFontLink = '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">';
+            
+            const previewHTML = `
+                <!DOCTYPE html>
+                <html lang="ko">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>여행 일정 미리보기: ${tripData.title}</title>
+                    ${tailwindCDN}
+                    ${googleFontLink}
+                    <style>
+                        body { font-family: 'Noto Sans KR', sans-serif; background-color: #F8F9FA; }
+                        ${styles}
+                        .day-header-container[onclick] { cursor: pointer; }
+                        .day-header-container[onclick]:hover { background-color: #f0f0f0; }
+                    </style>
+                </head>
+                <body class="text-gray-800">
+                    ${readOnlyViewHTML}
+                    <script>
+                        function toggleDayView(headerElement) {
+                            const contentWrapper = headerElement.nextElementSibling;
+                            const toggleButtonSpan = headerElement.querySelector('.day-toggle-button-static');
+                            if (contentWrapper && toggleButtonSpan) {
+                                const isHidden = contentWrapper.classList.toggle('hidden');
+                                const expandedIconHTML = '<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
+                                const collapsedIconHTML = '<svg class="toggle-icon w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>';
+                                toggleButtonSpan.innerHTML = isHidden ? collapsedIconHTML : expandedIconHTML;
+                            }
+                        }
+                    <\/script>
+                </body>
+                </html>`;
+
+            const previewWindow = window.open('', '_blank');
+            if (previewWindow) {
+                previewWindow.document.write(previewHTML);
+                previewWindow.document.close();
+            } else {
+                alert("팝업이 차단되었을 수 있습니다. 미리보기 창을 열 수 없습니다.");
+            }
+
+            // Revert to original states
+            tripData.days.forEach((d, i) => { 
+                d.isCollapsed = originalCollapseStates[i]; 
+                d.editingDate = originalEditingStates[i];
+            });
+            tripData.editingTitle = originalEditingTitleState;
+            // renderTrip(); // Re-render the main app to its original state
+        });
+
+
         savePdfButton.addEventListener('click', () => { const originalCollapseStates = tripData.days.map(d => d.isCollapsed); const originalEditingStates = tripData.days.map(d => d.editingDate); tripData.days.forEach(d => { d.isCollapsed = false; d.editingDate = false; }); tripData.editingTitle = false; renderTrip(); setTimeout(() => { window.print(); tripData.days.forEach((d, i) => { d.isCollapsed = originalCollapseStates[i]; d.editingDate = originalEditingStates[i]; }); renderTrip(); }, 100); });
         
         saveHtmlButton.addEventListener('click', () => {
@@ -962,7 +1036,7 @@
             const safeDayDataString = dayDataString.replace(/<\/script>/g, '<\\/script>');
             
             const dayNumberForView = dayIndex + 1; 
-            const readOnlyDayViewHTML = generateReadOnlyDayView(dayData, dayNumberForView); // Use the new function
+            const readOnlyDayViewHTML = generateReadOnlyDayView(dayData, dayNumberForView); 
             
             let styles = "";
             document.querySelectorAll('style').forEach(styleTag => { styles += styleTag.innerHTML; });
